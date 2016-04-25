@@ -7,10 +7,8 @@ import java.io.Serializable;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.biojava.nbio.structure.Structure;
 import org.rcsb.mmtf.api.StructureDataInterface;
 import org.rcsb.mmtf.dataholders.MmtfStructure;
 import org.rcsb.mmtf.decoder.DefaultDecoder;
@@ -57,14 +55,16 @@ public class ExampleParse  implements Serializable {
 				.mapToPair(t -> new Tuple2<String, StructureDataInterface>(t._1,  new DefaultDecoder(t._2)))
 				// Roughly ten minutes to then parse in biojava
 				.mapToPair(new StructDataInterfaceToStructureMapper())
+				// Example function counting atoms in those and returning the answer
+				.mapToPair(new ExampleMapper())
 				// Now map them into one list
 				.map(t -> t._1);
 
 		// Now print the number of sturctures parsed
 		System.out.println(jprdd.count()+" structures parsed.");
 		long endTime = System.currentTimeMillis();
-		System.out.println(endTime-startTime);
-		// Now move the folder 
+		System.out.println("Proccess took "+(endTime-startTime)+" ms.");
+		// Now close spark down
 		sc.close();
 	}
 }
