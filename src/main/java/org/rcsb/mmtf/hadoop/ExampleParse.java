@@ -55,11 +55,11 @@ public class ExampleParse  implements Serializable {
 				.mapToPair(t -> new Tuple2<String, StructureDataInterface>(t._1,  new DefaultDecoder(t._2)))
 				// Roughly ten minutes to then parse in biojava
 				.mapToPair(new StructDataInterfaceToStructureMapper())
+//				.mapToPair(t -> new Tuple2<String, Structure>(t._1, new MmtfStructureDataReader().getStructure(t._2)))
 				// Example function counting atoms in those and returning the answer
-				.mapToPair(new ExampleMapper())
+//				.mapToPair(new ExampleMapper())
 				// Now map them into one list
 				.map(t -> t._1);
-
 		// Now print the number of sturctures parsed
 		System.out.println(jprdd.count()+" structures parsed.");
 		long endTime = System.currentTimeMillis();

@@ -33,7 +33,4 @@ public class ExampleMapper implements PairFunction<Tuple2<String, Structure>,Str
 		// Now return this answer
 		return new Tuple2<String, Integer>(t._1, counter);
 	}
-
-
-
 }
