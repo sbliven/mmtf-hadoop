@@ -41,7 +41,7 @@ public class FastParse {
 	{
 
 		
-		float[] rmsdAttempts = new float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f};
+		float[] rmsdAttempts = new float[] {10.0f};
 		Map<Float,Integer> outMap = new HashMap<>();
 
 		// The input path for the data.
@@ -49,10 +49,9 @@ public class FastParse {
 		long startTime = System.currentTimeMillis();
 		// This is the default 2 line structure for Spark applications
 		SparkConf conf = new SparkConf().setMaster("local[*]")
-				.setAppName(FastParse.class.getSimpleName());
-		conf.set("spark.memory.offHeap.enabled", "true");
-		conf.set("spark.memory.fraction", "0.9");
-		conf.set("spark.memory.offHeap.size", "20g");
+				.setAppName(FastParse.class.getSimpleName())
+				.set("spark.memory.fraction", "0.9")
+				.set("spark.memory.storageFraction", "0.1");
 		// Set the config for the spark context
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		JavaPairRDD<String, List<Point3d>> fragmentRdd = sc

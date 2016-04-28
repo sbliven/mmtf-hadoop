@@ -16,6 +16,10 @@ import scala.Tuple2;
 public class RMSDFilter implements Function<Tuple2<String, List<Point3d>>, Boolean> {
 
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -8406639613937304310L;
 	private List<Point3d> filterItem;
 	private float rmsd;
 	

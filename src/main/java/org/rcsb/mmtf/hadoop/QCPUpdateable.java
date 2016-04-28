@@ -1,15 +1,11 @@
 package org.rcsb.mmtf.hadoop;
 
 import java.io.Serializable;
-import java.util.Arrays;
 
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Matrix4d;
 import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
-
-import org.apache.commons.math.stat.correlation.Covariance;
-import org.apache.commons.math3.stat.correlation.StorelessCovariance;
 
 
 /**

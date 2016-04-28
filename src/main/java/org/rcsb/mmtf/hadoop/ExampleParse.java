@@ -45,8 +45,10 @@ public class ExampleParse  implements Serializable {
 				.setAppName(ExampleParse.class.getSimpleName());
 		// Set the config for the spark context
 		JavaSparkContext sc = new JavaSparkContext(conf);
-		JavaRDD<String> jprdd = sc
+		JavaRDD<Double> atomConactRdd = sc
 				.sequenceFile(inPath, Text.class, BytesWritable.class, 8)
+				// Use this for testing (set's the fraction of the data to process) 1.0 means all
+				.sample(false, 1.0)
 				// Roughly thirty seconds
 				.mapToPair(t -> new Tuple2<String, byte[]>(t._1.toString(), ReaderUtils.deflateGzip(t._2.getBytes())))
 				// Roughly a minute 
@@ -54,14 +56,15 @@ public class ExampleParse  implements Serializable {
 				// Roughly a minute
 				.mapToPair(t -> new Tuple2<String, StructureDataInterface>(t._1,  new DefaultDecoder(t._2)))
 				// Roughly ten minutes to then parse in biojava
-				.mapToPair(new StructDataInterfaceToStructureMapper())
-//				.mapToPair(t -> new Tuple2<String, Structure>(t._1, new MmtfStructureDataReader().getStructure(t._2)))
+//				.mapToPair(new StructDataInterfaceToStructureMapper())
 				// Example function counting atoms in those and returning the answer
 //				.mapToPair(new ExampleMapper())
-				// Now map them into one list
-				.map(t -> t._1);
-		// Now print the number of sturctures parsed
-		System.out.println(jprdd.count()+" structures parsed.");
+				// Example function iterating through and finding the distances
+				.flatMap(new CalculateContacts(5.0))
+				// Now cache the rdd (so you don't recalculate on each action on the rdd
+				.map(t -> t.getDistance());
+		// Now print the number of contacts found
+		System.out.println(atomConactRdd.count()+" contacts.");
 		long endTime = System.currentTimeMillis();
 		System.out.println("Proccess took "+(endTime-startTime)+" ms.");
 		// Now close spark down
