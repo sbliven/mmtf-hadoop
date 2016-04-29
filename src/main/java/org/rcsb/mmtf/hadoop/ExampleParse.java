@@ -48,7 +48,7 @@ public class ExampleParse  implements Serializable {
 		JavaRDD<Double> atomConactRdd = sc
 				.sequenceFile(inPath, Text.class, BytesWritable.class, 8)
 				// Use this for testing (set's the fraction of the data to process) 1.0 means all
-				.sample(false, 1.0)
+//				.sample(false, 1.0)
 				// Roughly thirty seconds
 				.mapToPair(t -> new Tuple2<String, byte[]>(t._1.toString(), ReaderUtils.deflateGzip(t._2.getBytes())))
 				// Roughly a minute 

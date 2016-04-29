@@ -65,15 +65,20 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 		List<AtomContact> outList  = new ArrayList<>();
 		int lastNumGroup = 0;
 		atomCounter = 0;
+		
+		List<Atom> atomList = new ArrayList<>();
 		for(int i=0; i<structure.getChainsPerModel()[0]; i++){
-			Grid grid = new Grid(cutoff);
-			Atom[] atomList = getChargedAtoms(structure,i, lastNumGroup,atomCounter);
-			if(atomList.length>0){
-				grid.addAtoms(atomList);
-				AtomContactSet contacts =  grid.getContacts();
-				outList.addAll(contacts.getContactsWithinDistance(cutoff-0.000001));
-			}
+			atomList.addAll(getChargedAtoms(structure, i, lastNumGroup));
 			lastNumGroup+=structure.getGroupsPerChain()[i];
+		}
+		System.out.println(pdbCode+" has "+atomList.size()+" charged atoms.");
+		if(atomList.size()>0){
+			Grid grid = new Grid(cutoff);
+			Atom[] atomArray = atomList.toArray(new Atom[atomList.size()]);
+			grid.addAtoms(atomArray);
+			for(AtomContact atomContact : grid.getContacts()){
+				outList.add(atomContact);
+			}
 		}
 		return outList;
 	}
@@ -85,7 +90,7 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 	 * @param lastNumGroup the index of the first group in the chain
 	 * @return a list of C-alpha atoms
 	 */
-	private Atom[] getChargedAtoms(StructureDataInterface structure, int chainInd, int lastNumGroup, int atomCounter) {
+	private List<Atom> getChargedAtoms(StructureDataInterface structure, int chainInd, int lastNumGroup) {
 		int numGroups = structure.getGroupsPerChain()[chainInd];
 		List<Atom> atomList = new ArrayList<>();
 		Group group = new AminoAcidImpl();
@@ -110,6 +115,6 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 			}
 		}
 		// Return the list
-		return atomList.toArray(new Atom[0]);
+		return atomList;
 	}
 }
