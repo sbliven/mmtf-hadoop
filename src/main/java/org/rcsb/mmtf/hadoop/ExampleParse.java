@@ -32,13 +32,13 @@ public class ExampleParse  implements Serializable {
 	
 	/**
 	 * A function to read a hadoop sequence file to Biojava structures.
-	 * @param args
+	 * @param args 1) is the path to the hadoop sequence file.
 	 * @throws IOException
 	 */
 	public static void main(String[] args ) throws IOException
 	{
 		// The input path for the data.
-		String inPath = "/Users/anthony/full";
+		String inPath = args[0];
 		long startTime = System.currentTimeMillis();
 		// This is the default 2 line structure for Spark applications
 		SparkConf conf = new SparkConf().setMaster("local[*]")
