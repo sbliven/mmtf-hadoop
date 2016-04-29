@@ -77,6 +77,8 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 			Atom[] atomArray = atomList.toArray(new Atom[atomList.size()]);
 			grid.addAtoms(atomArray);
 			for(AtomContact atomContact : grid.getContacts()){
+				// Maybe add a filter here to ensure they're not 
+				// in the same group
 				outList.add(atomContact);
 			}
 		}
