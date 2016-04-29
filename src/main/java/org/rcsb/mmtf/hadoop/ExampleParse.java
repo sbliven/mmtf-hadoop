@@ -45,10 +45,10 @@ public class ExampleParse  implements Serializable {
 				.setAppName(ExampleParse.class.getSimpleName());
 		// Set the config for the spark context
 		JavaSparkContext sc = new JavaSparkContext(conf);
-		JavaRDD<Double> atomConactRdd = sc
+		JavaRDD<String> atomConactRdd = sc
 				.sequenceFile(inPath, Text.class, BytesWritable.class, 8)
-				// Use this for testing (set's the fraction of the data to process) 1.0 means all
-//				.sample(false, 1.0)
+				// Use this for testing (set's the fraction of the data to process) 1.0 means sample everything
+				.sample(false, 1.0)
 				// Roughly thirty seconds
 				.mapToPair(t -> new Tuple2<String, byte[]>(t._1.toString(), ReaderUtils.deflateGzip(t._2.getBytes())))
 				// Roughly a minute 
@@ -60,11 +60,9 @@ public class ExampleParse  implements Serializable {
 				// Example function counting atoms in those and returning the answer
 //				.mapToPair(new ExampleMapper())
 				// Example function iterating through and finding the distances
-				.flatMap(new CalculateContacts(5.0))
-				// Now cache the rdd (so you don't recalculate on each action on the rdd
-				.map(t -> t.getDistance());
-		// Now print the number of contacts found
-		System.out.println(atomConactRdd.count()+" contacts.");
+				.flatMap(new CalculateContacts(5.0));
+		// Now write out the contacts
+		atomConactRdd.saveAsTextFile("out.text");
 		long endTime = System.currentTimeMillis();
 		System.out.println("Proccess took "+(endTime-startTime)+" ms.");
 		// Now close spark down
