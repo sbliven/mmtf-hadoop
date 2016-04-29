@@ -5,20 +5,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.spark.api.java.function.FlatMapFunction;
-import org.biojava.nbio.structure.AminoAcidImpl;
 import org.biojava.nbio.structure.Atom;
-import org.biojava.nbio.structure.AtomImpl;
-import org.biojava.nbio.structure.Chain;
-import org.biojava.nbio.structure.ChainImpl;
-import org.biojava.nbio.structure.Group;
 import org.biojava.nbio.structure.contact.AtomContact;
-import org.biojava.nbio.structure.contact.Grid;
+import org.biojava.nbio.structure.contact.AtomContactSet;
 import org.rcsb.mmtf.api.StructureDataInterface;
 
 import scala.Tuple2;
 
 /**
- * Class to calculate all interatomic distances.
+ * Class to calculate all interatomic distances between charged atoms.
  * {@link Tuple2}{@link String}{@link StructureDataInterface} is the entry type.
  * {@link String} is the return type.
  * Flatmap means that the return from call must be an interable of String and Float (stored in Tuple2).
@@ -29,7 +24,6 @@ import scala.Tuple2;
 public class CalculateContacts implements FlatMapFunction<Tuple2<String,StructureDataInterface>, String>{
 
 	private double cutoff;
-	private int atomCounter;
 
 	/**
 	 * @param cutoff
@@ -62,19 +56,10 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 	 */
 	private List<String> getDist(StructureDataInterface structure, String pdbCode, double cutoff) {
 		List<String> outList  = new ArrayList<>();
-		int lastNumGroup = 0;
-		atomCounter = 0;
-
-		List<Atom> atomList = new ArrayList<>();
-		for(int i=0; i<structure.getChainsPerModel()[0]; i++){
-			atomList.addAll(getChargedAtoms(structure, i, lastNumGroup));
-			lastNumGroup+=structure.getGroupsPerChain()[i];
-		}
+		List<Atom> atomList = ChargeUtils.getChargedAtoms(structure);
 		if(atomList.size()>0){
-			Grid grid = new Grid(cutoff);
-			Atom[] atomArray = atomList.toArray(new Atom[atomList.size()]);
-			grid.addAtoms(atomArray);
-			for(AtomContact atomContact : grid.getContacts()){
+			AtomContactSet atomConactSet = ChargeUtils.getAtomContacts(atomList, cutoff);
+			for(AtomContact atomContact : atomConactSet){
 				// Maybe add a filter here to ensure they're not 
 				// in the same group
 				Atom atomOne = atomContact.getPair().getFirst();
@@ -103,42 +88,5 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 			double distance) {
 		// Very simple comma delimited string
 		return pdbCode+","+atomIdOne+","+chargeOne+","+atomIdTwo+","+chargeTwo+","+distance;
-	}
-
-	/**
-	 * Get the Charged atoms from the whole structure.
-	 * @param structure the {@link StructureDataInterface} input
-	 * @param chainInd the index of the chain
-	 * @param lastNumGroup the index of the first group in the chain
-	 * @return a list of C-alpha atoms
-	 */
-	private List<Atom> getChargedAtoms(StructureDataInterface structure, int chainInd, int lastNumGroup) {
-		int numGroups = structure.getGroupsPerChain()[chainInd];
-		List<Atom> atomList = new ArrayList<>();
-		Chain chain = new ChainImpl();
-		chain.setChainID(structure.getChainIds()[chainInd]);
-		// Loop through the groups
-		for(int i=0; i<numGroups; i++) {
-			Group group = new AminoAcidImpl();
-			group.setResidueNumber(structure.getChainIds()[chainInd], i, '?');
-			group.setChain(chain);
-			int groupType = structure.getGroupTypeIndices()[i+lastNumGroup];
-			int[] atomCharges = structure.getGroupAtomCharges(groupType);
-			for(int j=0; j<atomCharges.length; j++){
-				if(atomCharges[j]!=0) {
-					Atom atom = new AtomImpl();
-					atom.setX(structure.getxCoords()[atomCounter]);
-					atom.setY(structure.getyCoords()[atomCounter]);
-					atom.setZ(structure.getzCoords()[atomCounter]);
-					atom.setCharge((short) atomCharges[j]);
-					atom.setPDBserial(structure.getAtomIds()[atomCounter]);
-					atom.setGroup(group);
-					atomList.add(atom);
-				}
-				atomCounter++;
-			}
-		}
-		// Return the list
-		return atomList;
 	}
 }
