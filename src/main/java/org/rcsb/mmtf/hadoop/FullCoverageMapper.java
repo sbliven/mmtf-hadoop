@@ -77,6 +77,7 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 		SpaceGroup sg = SpaceGroup.parseSpaceGroup(data.getSpaceGroup());
 		int ops;
 		if(sg != null)
+			// TODO doesn't include NCS operators (MMTF issue #2
 			ops = sg.getNumOperators();
 		else
 			ops = 1;
@@ -151,6 +152,11 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	}
 
 	public static int[][] fitStoichiometryAll(int[] uc, int[][] assemblies) {
+		// check that lengths are consistent
+		if( Arrays.asList(assemblies).stream().anyMatch(a -> uc.length != a.length) ) {
+			throw new IndexOutOfBoundsException("Input lengths differ");
+		}
+
 		int[][] results = new int[assemblies.length][];
 
 		// select an assembly to apply
@@ -192,6 +198,23 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	 * @return true if the current composition exactly covers the unit cell
 	 */
 	public static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition) {
+		// check that lengths are consistent
+		if( Arrays.asList(assemblies).stream().anyMatch(a -> uc.length != a.length)
+				|| assemblies.length != composition.length ) {
+			throw new IndexOutOfBoundsException("Input lengths differ");
+		}
+		return fitStoichiometry(uc, assemblies, composition, assemblies.length);
+	}
+	/**
+	 * Helper version
+	 * @param uc unit cell stoichiometry over n entities
+	 * @param assemblies m*n array of stoichiometries of each assembly
+	 * @param composition output array of length m with the number of copies of each assembly fit
+	 * @param numAssemblies Only consider the first numAssemblies elements of assemblies.
+	 * @return true if the current composition exactly covers the unit cell
+	 */
+	private static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition, int numAssemblies) {
+
 		// Check if we're done
 		boolean done = true;
 		for(int i=0;i<uc.length;i++) {
@@ -204,13 +227,13 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 			return true;
 		}
 		// select an assembly to apply
-		for(int i=0;i<assemblies.length;i++) {
+		for(int i=0;i<numAssemblies;i++) {
 			if( lte(assemblies[i],uc) ) {
 				// Apply the assembly
 				sub(uc,assemblies[i]);
 				composition[i]++;
 				// Recurse
-				boolean success = fitStoichiometry(uc, assemblies, composition);
+				boolean success = fitStoichiometry(uc, assemblies, composition, i+1);
 				// Back out
 				add(uc,assemblies[i]);
 				if(success) {
