@@ -20,7 +20,7 @@ import scala.Tuple2;
 /**
  * Class to calculate all interatomic distances.
  * {@link Tuple2}{@link String}{@link StructureDataInterface} is the entry type.
- * {@link String}{@link Float} are the return types.
+ * {@link String} is the return type.
  * Flatmap means that the return from call must be an interable of String and Float (stored in Tuple2).
  * String and Float can be changed to any type (including custom data objects).
  * @author Anthony Bradley
@@ -96,7 +96,7 @@ public class CalculateContacts implements FlatMapFunction<Tuple2<String,Structur
 	 * @param chargeOne the charge on atom one
 	 * @param atomIdTwo the serial id of atom two
 	 * @param chargeTwo the charge on atom two
-	 * @param distance the distance between the two atoms
+	 * @param distance the distance between the two atoms in Angstromss
 	 * @return the formatted string
 	 */
 	private String writeLine(String pdbCode, int atomIdOne, short chargeOne, int atomIdTwo, short chargeTwo,
