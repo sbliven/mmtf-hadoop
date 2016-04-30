@@ -8,7 +8,6 @@ import java.util.Map;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.rcsb.mmtf.api.StructureDataInterface;
@@ -73,7 +72,7 @@ public class FastParse {
 
 		// Cluster the data into two classes using KMeans
 		int numClusters = 250;
-		int numIterations = 20;
+		int numIterations = 10;
 		int numRuns = 1;
 		// http://theory.stanford.edu/~sergei/papers/vldb12-kmpar.pdf
 		String initializationMode = "k-means||";
