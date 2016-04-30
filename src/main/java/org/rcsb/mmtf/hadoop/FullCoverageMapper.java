@@ -24,6 +24,7 @@
  
 package org.rcsb.mmtf.hadoop;
 
+import java.nio.channels.InterruptedByTimeoutException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.stream.Collectors;
@@ -48,6 +49,8 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	@Override
 	public Tuple2<String, String> call(
 			Tuple2<String, StructureDataInterface> t) throws Exception {
+		StringBuffer str = new StringBuffer();
+		long startTime = System.currentTimeMillis();
 		StructureDataInterface data = t._2;
 		
 		int numChains = data.getChainsPerModel()[0];
@@ -102,7 +105,6 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 		}
 
 		// Append stoichiometries to output
-		StringBuffer str = new StringBuffer();
 		str.append(String.format("UC:%s\t",getStoichiometryString(chainIds, ucstoich)));
 		str.append(IntStream.range(0,stoichiometries.length)
 				.mapToObj(ba -> String.format("pdb%d:%s",ba+1,getStoichiometryString(chainIds, stoichiometries[ba])))
@@ -121,37 +123,44 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 		// Actually, for each assembly we want to know whether a solution exists
 		// with at least one copy of that assembly
 		
-		int[][] fits = fitStoichiometryAll(ucstoich, stoichiometries);
-		
-		str.append("\tCovers: ");
-		str.append( new HashSet<>(Arrays.asList(fits)).stream()
-				.filter(fit -> fit != null)
-				.map(fit -> IntStream.range(0,fit.length)
-						.filter(i -> fit[i] > 0)
-						.mapToObj(i -> String.format("pdb%d",i+1)+ (fit[i]>1 ? "_"+(i+1) : "" ) )
-						.collect(Collectors.joining(","))
-						)
-						.collect(Collectors.joining("; ")) );
+		try {
+			int[][] fits = fitStoichiometryAll(ucstoich, stoichiometries);
 
-		String missing = IntStream.range(0, fits.length)
-				.filter(i -> fits[i] == null)
-				.mapToObj(i -> String.format("pdb%d", i+1))
-				.collect(Collectors.joining(","));
-		if( !missing.isEmpty() ) {
-			str.append("\tNo ");
-			str.append(missing);
+			str.append("\tCovers: ");
+			str.append( new HashSet<>(Arrays.asList(fits)).stream()
+					.filter(fit -> fit != null)
+					.map(fit -> IntStream.range(0,fit.length)
+							.filter(i -> fit[i] > 0)
+							.mapToObj(i -> String.format("pdb%d",i+1)+ (fit[i]>1 ? "_"+(i+1) : "" ) )
+							.collect(Collectors.joining(","))
+							)
+							.collect(Collectors.joining("; ")) );
+
+			String missing = IntStream.range(0, fits.length)
+					.filter(i -> fits[i] == null)
+					.mapToObj(i -> String.format("pdb%d", i+1))
+					.collect(Collectors.joining(","));
+			if( !missing.isEmpty() ) {
+				str.append("\tNo ");
+				str.append(missing);
+			}
+		} catch(InterruptedByTimeoutException e) {
+			str.append("\tTimeout");
 		}
-		
+
+		str.append("Time:");
+		str.append(System.currentTimeMillis()-startTime);
 		return new Tuple2<>(t._1, str.toString());
 	}
 
 	private String getStoichiometryString(String[] chainIds, int[] stoich) {
 		return IntStream.range(0, stoich.length)
+				.filter(i -> stoich[i] > 0)
 				.mapToObj( i -> chainIds[i] + (stoich[i] > 1 ? "_"+stoich[i] : "") )
 				.collect(Collectors.joining(" "));
 	}
 
-	public static int[][] fitStoichiometryAll(int[] uc, int[][] assemblies) {
+	public static int[][] fitStoichiometryAll(int[] uc, int[][] assemblies) throws InterruptedByTimeoutException {
 		// check that lengths are consistent
 		if( Arrays.asList(assemblies).stream().anyMatch(a -> uc.length != a.length) ) {
 			throw new IndexOutOfBoundsException("Input lengths differ");
@@ -196,14 +205,16 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	 * @param assemblies m*n array of stoichiometries of each assembly
 	 * @param composition output array of length m with the number of copies of each assembly fit
 	 * @return true if the current composition exactly covers the unit cell
+	 * @throws InterruptedByTimeoutException 
 	 */
-	public static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition) {
+	public static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition) throws InterruptedByTimeoutException {
 		// check that lengths are consistent
 		if( Arrays.asList(assemblies).stream().anyMatch(a -> uc.length != a.length)
 				|| assemblies.length != composition.length ) {
 			throw new IndexOutOfBoundsException("Input lengths differ");
 		}
-		return fitStoichiometry(uc, assemblies, composition, assemblies.length);
+		long maxTime = System.currentTimeMillis() + 20000; // Shouldn't take more than 20 sec
+		return fitStoichiometry(uc, assemblies, composition, assemblies.length,maxTime);
 	}
 	/**
 	 * Helper version
@@ -212,9 +223,12 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	 * @param composition output array of length m with the number of copies of each assembly fit
 	 * @param numAssemblies Only consider the first numAssemblies elements of assemblies.
 	 * @return true if the current composition exactly covers the unit cell
+	 * @throws InterruptedByTimeoutException 
 	 */
-	private static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition, int numAssemblies) {
-
+	private static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition, int numAssemblies,long maxTime) throws InterruptedByTimeoutException {
+		if(maxTime >0 && System.currentTimeMillis() > maxTime) {
+			throw new InterruptedByTimeoutException();
+		}
 		// Check if we're done
 		boolean done = true;
 		for(int i=0;i<uc.length;i++) {
@@ -233,7 +247,7 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 				sub(uc,assemblies[i]);
 				composition[i]++;
 				// Recurse
-				boolean success = fitStoichiometry(uc, assemblies, composition, i+1);
+				boolean success = fitStoichiometry(uc, assemblies, composition, i+1,maxTime);
 				// Back out
 				add(uc,assemblies[i]);
 				if(success) {

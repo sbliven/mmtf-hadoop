@@ -26,12 +26,14 @@ package org.rcsb.mmtf.hadoop;
 
 import static org.junit.Assert.*;
 
+import java.nio.channels.InterruptedByTimeoutException;
+
 import org.junit.Test;
 
 public class TestFullCoverageMapper {
 
 	@Test
-	public void testFitStoichiometry() {
+	public void testFitStoichiometry() throws InterruptedByTimeoutException {
 		int[] uc, comp;
 		boolean result;
 		int[][] assemblies = new int[][] {
