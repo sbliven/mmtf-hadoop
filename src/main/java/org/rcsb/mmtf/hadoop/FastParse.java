@@ -3,10 +3,7 @@ package org.rcsb.mmtf.hadoop;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
-import javax.vecmath.Point3d;
 
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
@@ -30,7 +27,6 @@ import scala.Tuple2;
 public class FastParse {
 
 
-	private static final int MAX_CLUSTERS = 10000;
 	/**
 	 * A function to read a hadoop sequence file to {@link StructureDataInterface}
 	 * and then calculate the fragments found in the PDB.
@@ -41,7 +37,6 @@ public class FastParse {
 	{
 
 		
-		float[] rmsdAttempts = new float[] {10.0f};
 		Map<Float,Integer> outMap = new HashMap<>();
 
 		// The input path for the data.
@@ -54,7 +49,7 @@ public class FastParse {
 				.set("spark.memory.storageFraction", "0.1");
 		// Set the config for the spark context
 		JavaSparkContext sc = new JavaSparkContext(conf);
-		JavaPairRDD<String, List<Point3d>> fragmentRdd = sc
+		JavaPairRDD<String,float[]> fragmentRdd = sc
 				.sequenceFile(inPath, Text.class, BytesWritable.class, 8)
 				// Roughly thirty seconds
 				.mapToPair(t -> new Tuple2<String, byte[]>(t._1.toString(), ReaderUtils.deflateGzip(t._2.getBytes())))
@@ -63,26 +58,11 @@ public class FastParse {
 				// Roughly a minute
 				.mapToPair(t -> new Tuple2<String, StructureDataInterface>(t._1,  new DefaultDecoder(t._2)))
 				// Now find all the fragments in this chain
-				.flatMapToPair(new FragmentProteins(8));
+				.flatMapToPair(new FragmentProteins(8))
+				.mapToPair(t -> new Tuple2<String,float[]>(t._1, GenerateMoments.getMoments(t._2)));
 
-		for(float rmsd : rmsdAttempts){
-			// Cache the data
-			JavaPairRDD<String, List<Point3d>> cachedFragmentRdd = fragmentRdd.cache();
-			int numClusters = 0;
-			for(int i=0; i<MAX_CLUSTERS; i++){
-				// Take this as your first sample
-				Tuple2<String, List<Point3d>> sampleFragment = cachedFragmentRdd.takeSample(false, 1).get(0);
-				cachedFragmentRdd = cachedFragmentRdd.filter(new RMSDFilter(sampleFragment._2(),rmsd));
-				numClusters++;
-				if(cachedFragmentRdd.count()<10000){
-					outMap.put(rmsd, numClusters);
-					break;
-				}
-				System.out.println("RDD still has: "+cachedFragmentRdd.count()+" fragments");
-			}
-		}
+
 		// Now print the number of fragments found
-		System.out.println();
 		System.out.println(fragmentRdd.count()+" fragments found.");
 		long endTime = System.currentTimeMillis();
 		System.out.println("Proccess took "+(endTime-startTime)+" ms.");

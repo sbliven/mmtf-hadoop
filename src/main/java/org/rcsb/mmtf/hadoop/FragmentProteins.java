@@ -18,7 +18,7 @@ import scala.Tuple2;
  * @author Anthony Bradley
  *
  */
-public class FragmentProteins implements PairFlatMapFunction<Tuple2<String,StructureDataInterface>, String, List<Point3d>>{
+public class FragmentProteins implements PairFlatMapFunction<Tuple2<String,StructureDataInterface>, String, Point3d[]>{
 
 	/**
 	 * 
@@ -36,9 +36,9 @@ public class FragmentProteins implements PairFlatMapFunction<Tuple2<String,Struc
 
 
 	@Override
-	public Iterable<Tuple2<String, List<Point3d>>> call(Tuple2<String, StructureDataInterface> t) throws Exception {
+	public Iterable<Tuple2<String, Point3d[]>> call(Tuple2<String, StructureDataInterface> t) throws Exception {
 
-		List<Tuple2<String, List<Point3d>>> outList = new ArrayList<>();
+		List<Tuple2<String, Point3d[]>> outList = new ArrayList<>();
 		StructureDataInterface structureDataInterface = t._2;
 		// Get the PDB id
 		String pdbId = structureDataInterface.getStructureId();
@@ -62,7 +62,7 @@ public class FragmentProteins implements PairFlatMapFunction<Tuple2<String,Struc
 						fragList.add(point3d);
 					}
 					if (fragList.size()==fragmentLength) {
-						outList.add(new Tuple2<String, List<Point3d>>(chainId+fragCounter, fragList));
+						outList.add(new Tuple2<String, Point3d[]>(chainId+fragCounter, fragList.toArray(new Point3d[fragmentLength])));
 						fragList.remove(fragmentLength-1);
 						fragCounter++;
 					}
