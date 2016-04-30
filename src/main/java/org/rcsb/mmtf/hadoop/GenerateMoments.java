@@ -18,10 +18,10 @@ public class GenerateMoments {
 	 * @param inputArray the array of {@link Point3d}
 	 * @return the moments of this array
 	 */
-	public static float[] getMoments(Point3d[] inputArray) {
+	public static double[] getMoments(Point3d[] inputArray) {
 
 		// The output array - a 12  float vector
-		float[] outArray = new float[12];
+		double[] outArray = new double[12];
 		// Get the four points that we want
 		Point3d[] fourPoints = getFourPoints(inputArray);
 		for (int i=0; i<4; i++) {

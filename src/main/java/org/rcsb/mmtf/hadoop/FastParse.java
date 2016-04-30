@@ -9,6 +9,7 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.rcsb.mmtf.api.StructureDataInterface;
 import org.rcsb.mmtf.dataholders.MmtfStructure;
@@ -16,6 +17,9 @@ import org.rcsb.mmtf.decoder.DefaultDecoder;
 import org.rcsb.mmtf.decoder.ReaderUtils;
 import org.rcsb.mmtf.serialization.MessagePackSerialization;
 
+import org.apache.spark.mllib.linalg.Vector;
+import org.apache.spark.mllib.linalg.Vectors;
+import org.apache.spark.mllib.clustering.*;
 import scala.Tuple2;
 
 /**
@@ -36,7 +40,7 @@ public class FastParse {
 	public static void main(String[] args ) throws IOException
 	{
 
-		
+
 		Map<Float,Integer> outMap = new HashMap<>();
 
 		// The input path for the data.
@@ -49,7 +53,7 @@ public class FastParse {
 				.set("spark.memory.storageFraction", "0.1");
 		// Set the config for the spark context
 		JavaSparkContext sc = new JavaSparkContext(conf);
-		JavaPairRDD<String,float[]> fragmentRdd = sc
+		JavaRDD<Vector> fragmentRdd = sc
 				.sequenceFile(inPath, Text.class, BytesWritable.class, 8)
 				// Roughly thirty seconds
 				.mapToPair(t -> new Tuple2<String, byte[]>(t._1.toString(), ReaderUtils.deflateGzip(t._2.getBytes())))
@@ -59,8 +63,20 @@ public class FastParse {
 				.mapToPair(t -> new Tuple2<String, StructureDataInterface>(t._1,  new DefaultDecoder(t._2)))
 				// Now find all the fragments in this chain
 				.flatMapToPair(new FragmentProteins(8))
-				.mapToPair(t -> new Tuple2<String,float[]>(t._1, GenerateMoments.getMoments(t._2)));
+				.mapToPair(t -> new Tuple2<String,double[]>(t._1, GenerateMoments.getMoments(t._2)))
+				.map(t -> Vectors.dense(t._2))
+				.cache();
 
+
+		// Cluster the data into two classes using KMeans
+		int numClusters = 2;
+		int numIterations = 20;
+		KMeansModel clusters = KMeans.train(fragmentRdd.rdd(), numClusters, numIterations);
+
+	    double WSSSE = clusters.computeCost(fragmentRdd.rdd());
+	    System.out.println("Within Set Sum of Squared Errors = " + WSSSE);
+	    // Save and load model
+	    clusters.save(sc.sc(), "myModelPath");
 
 		// Now print the number of fragments found
 		System.out.println(fragmentRdd.count()+" fragments found.");
