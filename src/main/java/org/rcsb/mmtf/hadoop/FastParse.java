@@ -78,14 +78,16 @@ public class FastParse {
 		String initializationMode = "k-means||";
 		// Now train the model
 		KMeansModel clusters = KMeans.train(fragmentRdd.rdd(), numClusters, numIterations, numRuns, initializationMode);
-
+		// Compute the cost of this model
 	    double WSSSE = clusters.computeCost(fragmentRdd.rdd());
 	    System.out.println("Within Set Sum of Squared Errors = " + WSSSE);
-	    // Now find the fragments that 
+	    // Now find the cluster centers
 	    for(Vector clusterCenter : clusters.clusterCenters()) {
-	    	// Mp
-	    	System.out.println(clusterCenter.size());
+	    	// Print out this data
+	    	System.out.println(clusterCenter.toJson());
+	    	System.out.println(clusterCenter.numActives());
 	    }
+	    // Save the clusters
 	    clusters.save(sc.sc(), "model");
 		// Now print the number of fragments found
 		System.out.println(fragmentRdd.count()+" fragments found.");
