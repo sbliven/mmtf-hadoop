@@ -27,8 +27,8 @@ public class TestGenerateMoments {
 		inputArray[6] = new Point3d(new double[]{-10.0,7.0,249.0});
 		inputArray[7] = new Point3d(new double[]{13.0,3.0,3.0});
 
-		float[] moments = GenerateMoments.getMoments(inputArray);
-		for(float moment : moments){
+		double[] moments = GenerateMoments.getMoments(inputArray);
+		for(double moment : moments){
 			System.out.println(moment);
 		}
 	}
