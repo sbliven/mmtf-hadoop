@@ -66,6 +66,8 @@ public class FastParse {
 				.mapToPair(t -> new Tuple2<String,double[]>(t._1, GenerateMoments.getMoments(t._2)))
 				// Convert to vectors for clustering
 				.map(t -> Vectors.dense(t._2))
+				// Only cluster 1% of the data
+				.sample(false, 0.01)
 				// Cache them
 				.cache();
 
