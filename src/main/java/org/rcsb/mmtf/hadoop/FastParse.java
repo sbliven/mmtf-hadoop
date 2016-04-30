@@ -61,23 +61,33 @@ public class FastParse {
 				.mapToPair(t -> new Tuple2<String, MmtfStructure>(t._1, new MessagePackSerialization().deserialize(new ByteArrayInputStream(t._2))))
 				// Roughly a minute
 				.mapToPair(t -> new Tuple2<String, StructureDataInterface>(t._1,  new DefaultDecoder(t._2)))
-				// Now find all the fragments in this chain
+				// Now find all the fragments in each structure
 				.flatMapToPair(new FragmentProteins(8))
+				// Now generate the moments for these fragments
 				.mapToPair(t -> new Tuple2<String,double[]>(t._1, GenerateMoments.getMoments(t._2)))
+				// Convert to vectors for clustering
 				.map(t -> Vectors.dense(t._2))
+				// Cache them
 				.cache();
 
 
 		// Cluster the data into two classes using KMeans
-		int numClusters = 2;
+		int numClusters = 250;
 		int numIterations = 20;
-		KMeansModel clusters = KMeans.train(fragmentRdd.rdd(), numClusters, numIterations);
+		int numRuns = 1;
+		// http://theory.stanford.edu/~sergei/papers/vldb12-kmpar.pdf
+		String initializationMode = "k-means||";
+		// Now train the model
+		KMeansModel clusters = KMeans.train(fragmentRdd.rdd(), numClusters, numIterations, numRuns, initializationMode);
 
 	    double WSSSE = clusters.computeCost(fragmentRdd.rdd());
 	    System.out.println("Within Set Sum of Squared Errors = " + WSSSE);
-	    // Save and load model
-	    clusters.save(sc.sc(), "myModelPath");
-
+	    // Now find the fragments that 
+	    for(Vector clusterCenter : clusters.clusterCenters()) {
+	    	// Mp
+	    	System.out.println(clusterCenter.size());
+	    }
+	    clusters.save(sc.sc(), "model");
 		// Now print the number of fragments found
 		System.out.println(fragmentRdd.count()+" fragments found.");
 		long endTime = System.currentTimeMillis();
