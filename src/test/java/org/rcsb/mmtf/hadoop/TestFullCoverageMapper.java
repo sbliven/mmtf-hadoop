@@ -86,5 +86,22 @@ public class TestFullCoverageMapper {
 		assertArrayEquals(new int[] { 0,0,0,0 }, comp);
 
 	}
-
+	
+	@Test
+	public void testABC() throws InterruptedByTimeoutException {
+		int[] uc, comp;
+		boolean result;
+		int[][] assemblies = new int[][] {
+				new int[] { 1,0,0 },
+				new int[] { 0,1,0 },
+				new int[] { 0,0,1 },
+		};
+		
+		uc = new int[] { 2, 2,2 };
+		comp = new int[assemblies.length];
+		result = FullCoverageMapper.fitStoichiometry(uc, assemblies, comp,-1);
+		assertTrue(result);
+		assertArrayEquals(new int[] { 2, 2,2 }, uc);
+		assertArrayEquals(new int[] { 2,2,2 }, comp);
+	}
 }

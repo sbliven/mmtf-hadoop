@@ -33,6 +33,8 @@ import java.util.stream.IntStream;
 import org.apache.spark.api.java.function.PairFunction;
 import org.biojava.nbio.structure.xtal.SpaceGroup;
 import org.rcsb.mmtf.api.StructureDataInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import scala.Tuple2;
 
@@ -43,7 +45,7 @@ import scala.Tuple2;
  *
  */
 public class FullCoverageMapper implements PairFunction<Tuple2<String, StructureDataInterface>,String, String> {
-
+	private static final Logger logger = LoggerFactory.getLogger(FullCoverageMapper.class);
 	private static final long serialVersionUID = 3812703935579649962L;
 
 	@Override
@@ -131,7 +133,7 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 					.filter(fit -> fit != null)
 					.map(fit -> IntStream.range(0,fit.length)
 							.filter(i -> fit[i] > 0)
-							.mapToObj(i -> String.format("pdb%d",i+1)+ (fit[i]>1 ? "_"+(i+1) : "" ) )
+							.mapToObj(i -> String.format("pdb%d",i+1)+ (fit[i]>1 ? "_"+fit[i] : "" ) )
 							.collect(Collectors.joining(","))
 							)
 							.collect(Collectors.joining("; ")) );
@@ -148,7 +150,7 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 			str.append("\tTimeout");
 		}
 
-		str.append("Time:");
+		str.append("\tTime:");
 		str.append(System.currentTimeMillis()-startTime);
 		return new Tuple2<>(t._1, str.toString());
 	}
@@ -208,13 +210,16 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	 * @throws InterruptedByTimeoutException 
 	 */
 	public static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition) throws InterruptedByTimeoutException {
+		return fitStoichiometry(uc, assemblies, composition, 60);
+	}
+	public static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition, long maxTime) throws InterruptedByTimeoutException {
 		// check that lengths are consistent
 		if( Arrays.asList(assemblies).stream().anyMatch(a -> uc.length != a.length)
 				|| assemblies.length != composition.length ) {
 			throw new IndexOutOfBoundsException("Input lengths differ");
 		}
-		long maxTime = System.currentTimeMillis() + 20000; // Shouldn't take more than 20 sec
-		return fitStoichiometry(uc, assemblies, composition, assemblies.length,maxTime);
+		long stopTime = maxTime > 0 ? System.currentTimeMillis() + maxTime : maxTime;
+		return fitStoichiometry(uc, assemblies, composition, assemblies.length,stopTime);
 	}
 	/**
 	 * Helper version
@@ -226,6 +231,10 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 	 * @throws InterruptedByTimeoutException 
 	 */
 	private static boolean fitStoichiometry(int[] uc, int[][] assemblies, int[] composition, int numAssemblies,long maxTime) throws InterruptedByTimeoutException {
+		logger.trace("fitStoichiometry({}, [{} assemblies], {})",
+				Arrays.toString(uc),
+				numAssemblies,
+				Arrays.toString(composition));
 		if(maxTime >0 && System.currentTimeMillis() > maxTime) {
 			throw new InterruptedByTimeoutException();
 		}
@@ -240,15 +249,33 @@ public class FullCoverageMapper implements PairFunction<Tuple2<String, Structure
 		if(done) {
 			return true;
 		}
+		// check if its impossible because no assemblies contain a needed component
+		for(int i=0;i<uc.length;i++) {
+			if( uc[i] <= 0)
+				continue;
+			boolean possible=false;
+			for(int j=0;j<numAssemblies;j++) {
+				if( assemblies[j][i] > 0) {
+					possible = true;
+					break;
+				}
+			}
+			if(!possible) {
+				logger.trace("Not possible due to column {}",i);
+				return false;
+			}
+		}
 		// select an assembly to apply
-		for(int i=0;i<numAssemblies;i++) {
+		for(int i=numAssemblies-1;i>=0;i--) {
 			if( lte(assemblies[i],uc) ) {
+				logger.trace("Trying assembly {}",i);
 				// Apply the assembly
 				sub(uc,assemblies[i]);
 				composition[i]++;
 				// Recurse
 				boolean success = fitStoichiometry(uc, assemblies, composition, i+1,maxTime);
 				// Back out
+				logger.trace("Backing out assembly {} {}",i,success?"success":"failure");
 				add(uc,assemblies[i]);
 				if(success) {
 					return true;
